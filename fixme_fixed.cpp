@@ -1,6 +1,7 @@
 #include <_ctype.h>
 #include <cstdio>
 #include <cstring>
+#include <exception>
 #include <math.h>
 #include <stdexcept>
 #include <string>
@@ -71,7 +72,7 @@ enum MonsterType {
 
 static unordered_map<string, MonsterType> monsterTypeLookup {
     {"GOBLIN", MonsterType::Goblin},
-        {"TROLL", MonsterType::Troll},
+    {"TROLL", MonsterType::Troll},
 };
 
 // The naming here is to keep convention with functions such as stoi
@@ -133,7 +134,6 @@ struct EncounterMgr {
 
         // configure   
         treasure->treasureValue = (std::rand() % 30);
-        printf("Treasure value: %g\n", treasure->treasureValue);
         return treasure;
     }
 };
@@ -151,8 +151,7 @@ bool battle(Player& player, vector<Encounter*>& encounters)
 
     while(encounters.size() > 0) {
         // adventurer
-        if (player.isDead())
-        {
+        if (player.isDead()) {
             // game_over
             return false;
         }
@@ -186,6 +185,7 @@ bool battle(Player& player, vector<Encounter*>& encounters)
                 }
             } else { // Treasure
                 Treasure* t = (Treasure*)encounters[i];
+                printf("Your treasure increases your health by %f points\n", t->treasureValue);
                 player.hp += t->treasureValue;
                 t->treasureValue -= t->treasureValue/2;
                 if(t->treasureValue <1) {
@@ -201,14 +201,31 @@ bool battle(Player& player, vector<Encounter*>& encounters)
 /**
   main
  **/
-int main()
-{
-    std::string s;
+int main() {
+    std::string s, line;
+    int levels = -1;
+
     printf("Generating Dungeon...\nHow many levels should be generated?\n");   
-    string line;  
     cin >> line;
-    int levels;
-    levels = stoi(line);
+
+    try {
+        levels = stoi(line);
+    } catch (exception _e) { // Either invalid argument (alphabetical) or stoi will be out of range
+        printf("What you ask is impossible. You get 10 levels.\n");
+        levels = 10;
+    }
+
+    while (levels < 1) {
+        printf("Sorry, I can't generate less than one level. Gimme another number.\n");
+        cin >> line;
+        try {
+            levels = stoi(line);
+        } catch (exception _e) {
+            printf("What you ask is impossible. You get 10 levels.\n");
+            levels = 10;
+        }
+    }
+
     levels+=1; // Lookup table is 0-n indexed inclusive. temp increase num lvls.
     std::vector< vector<int> > encounter_gen_table(levels, std::vector<int>(levels));
     for (int r = 0; r<levels; r+=1) {
@@ -217,15 +234,12 @@ int main()
                 encounter_gen_table[r][c] = horde_factor(r, c);
         }
     }
-    //for (int r = 0; r<l; r+=1) {
-    //	for (int c = 0; c<l; c+=1)
-    //		cout << encounter_gen_table[r][c] << ", ";
-    //	cout << " (lvl " << r <<")" << endl; 
-    //}
+
     levels-=1;
     printf("Enter the dungeon? ");
     cin >> s;
     transform(s.begin(), s.end(), s.begin(), ::toupper);
+
     if(s.compare("N") == 0 || s.compare("NO") == 0) {
         printf("That wasn't really a question. You're in anyway!\n");
     } else if (s.compare("Y") == 0 || s.compare("YES") == 0) {
@@ -233,10 +247,16 @@ int main()
     } else {
         printf("A passerby, who just so happens to only understand the words 'yes' and 'no', sees you speaking gibberish and pushes you into the dungeon out of fright.\n");
     }
+    
+    // Construct our important pieces
     Player player = Player();
     int i = 0, j=0;
-    while (1)
-    {
+    EncounterMgr mgr;
+    std::vector<Encounter*> encounters;
+
+    while (1) {
+        assert(encounters.size() == 0);
+
         printf("Player health: %d\n", player.hp);
         printf("Do you go left or right?\n");
         cin >> s;
@@ -254,8 +274,6 @@ int main()
         printf("----------------------------------------\n");
 
         // A troll in the dungeon!
-        EncounterMgr mgr;
-        std::vector<Encounter*> encounters;
         for(int monsters=0; monsters<j * encounter_gen_table[i][j]; monsters++)  
             encounters.push_back(mgr.create_monster(s.compare("LEFT") ? "Goblin" : "Troll"));
         // Bout to generate a LOT of treasure.
