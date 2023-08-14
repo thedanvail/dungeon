@@ -70,17 +70,6 @@ enum MonsterType {
     Goblin,
 };
 
-static unordered_map<string, MonsterType> monsterTypeLookup {
-    {"GOBLIN", MonsterType::Goblin},
-    {"TROLL", MonsterType::Troll},
-};
-
-// The naming here is to keep convention with functions such as stoi
-MonsterType stomt(string type) {
-    transform(type.begin(), type.end(), type.begin(), ::toupper);
-    return monsterTypeLookup[type];
-};
-
 class Encounter {
     public:
         virtual string getName() { return "Encounter"; }
@@ -117,8 +106,7 @@ class MonsterTroll : public Monster {
 
 struct EncounterMgr {
     // factory methods
-    Encounter* create_monster(std::string type) { 
-        MonsterType monsterType = stomt(type);
+    Encounter* create_monster(MonsterType monsterType) { 
         switch (monsterType) {
             case Troll:
                 printf("Creating a troll.\n");
@@ -275,7 +263,7 @@ int main() {
 
         // A troll in the dungeon!
         for(int monsters=0; monsters<j * encounter_gen_table[i][j]; monsters++)  
-            encounters.push_back(mgr.create_monster(s.compare("LEFT") ? "Goblin" : "Troll"));
+            encounters.push_back(mgr.create_monster(s.compare("LEFT") ? Goblin : Troll));
         // Bout to generate a LOT of treasure.
         for(int treasures=0; treasures<(i-j) * encounter_gen_table[i][j]; treasures++)   
             encounters.push_back(mgr.create_treasure());
