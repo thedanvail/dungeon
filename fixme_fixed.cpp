@@ -3,6 +3,7 @@
 #include <cstring>
 #include <exception>
 #include <math.h>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -72,7 +73,8 @@ enum MonsterType {
 
 class Encounter {
     public:
-        virtual string getName() { return "Encounter"; }
+        virtual ~Encounter() {}
+        virtual string getName() = 0; 
         virtual bool isMonster() = 0;
 };
 
@@ -89,6 +91,7 @@ class Treasure : public Encounter {
 class Monster : public Encounter, public ICombat {
     public:
         MonsterType monsterType;
+        string getName() { return "Monster"; };
         bool isMonster() { return true; };
 };
 
@@ -106,19 +109,19 @@ class MonsterTroll : public Monster {
 
 struct EncounterMgr {
     // factory methods
-    Encounter* create_monster(MonsterType monsterType) { 
+    shared_ptr<Encounter> create_monster(MonsterType monsterType) { 
         switch (monsterType) {
             case Troll:
                 printf("Creating a troll.\n");
-                return new MonsterTroll();
+                return make_shared<Monster>(MonsterTroll());
             case Goblin:
                 printf("Creating a goblin.\n");
-                return new MonsterGoblin();
+                return make_shared<Monster>(MonsterGoblin());
         }
     }
-    Encounter* create_treasure() {
+    shared_ptr<Encounter> create_treasure() {
         // create
-        Treasure* treasure = new Treasure();
+        shared_ptr<Treasure> treasure = make_shared<Treasure>(Treasure()); 
 
         // configure   
         treasure->treasureValue = (std::rand() % 30);
@@ -133,7 +136,7 @@ struct EncounterMgr {
   at the same time. The adventurer choses to attack a monster and doesn't directly
   interact with the treasures. The rounds continue until the battle is won or lost
  **/
-bool battle(Player& player, vector<Encounter*>& encounters)
+bool battle(Player& player, vector<shared_ptr<Encounter>>& encounters)
 {
     printf("You're face-to-face with %s %s!\n", descriptors[rand() % descriptors.size()].c_str(), encounters[0]->getName().c_str());
 
@@ -150,10 +153,10 @@ bool battle(Player& player, vector<Encounter*>& encounters)
          * designer's job), the player was slaughtering EVERYTHING before it knew what happened.
          * As a result, the change has been made so the player fights ONE monster each round.
          * */
-        Encounter* e = encounters[0];
+        shared_ptr<Encounter> e = encounters[0];
         if (e->isMonster()) {
             printf("Player attacks! ");
-            Monster* m = dynamic_cast<Monster*>(e);
+            shared_ptr<Monster> m = dynamic_pointer_cast<Monster>(e);
             player.attack(*m);
         }
 
@@ -161,7 +164,7 @@ bool battle(Player& player, vector<Encounter*>& encounters)
         {
             // Monster
             if (encounters[i]->isMonster()) {
-                Monster* m = (Monster*)encounters[i];
+                shared_ptr<Monster> m = dynamic_pointer_cast<Monster>(encounters[i]);
                 if (m->isDead()) {
                     encounters.erase(encounters.begin()+i);
                 } else {
@@ -172,7 +175,7 @@ bool battle(Player& player, vector<Encounter*>& encounters)
                     }
                 }
             } else { // Treasure
-                Treasure* t = (Treasure*)encounters[i];
+                shared_ptr<Treasure> t = dynamic_pointer_cast<Treasure>(encounters[i]);
                 printf("Your treasure increases your health by %f points\n", t->treasureValue);
                 player.hp += t->treasureValue;
                 t->treasureValue -= t->treasureValue/2;
@@ -240,7 +243,7 @@ int main() {
     Player player = Player();
     int i = 0, j=0;
     EncounterMgr mgr;
-    std::vector<Encounter*> encounters;
+    std::vector<shared_ptr<Encounter>> encounters;
 
     while (1) {
         assert(encounters.size() == 0);
@@ -273,9 +276,9 @@ int main() {
             break;
         }
         /* Confirm that all monsters are dead after the battle. */
-        for (Encounter* monster : encounters) 
+        for (shared_ptr<Encounter> monster : encounters) 
             if (monster->getName().find("Treasure") != 0) {
-                assert(((Monster*)monster)->hp<=0.0);
+                assert(dynamic_pointer_cast<Monster>(monster)->hp<=0.0);
             }
 
         if (i >= levels) {
